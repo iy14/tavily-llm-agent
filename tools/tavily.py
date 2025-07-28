@@ -7,15 +7,20 @@ TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 client = TavilyClient(TAVILY_API_KEY)
 
 def tavily_search(state):
-    profession = state.get("profession", "")
-    query = f"latest AI news for {profession}s"
+    """Simple search function that uses query from state"""
+    query = state.get("query", "")
+    time_period = state.get("time_period", "day")
 
     try:
         response = client.search(
             query=query,
-            include_answer=True,
-            search_depth="basic"
+            search_depth="advanced",
+            exclude_domains=["youtube.com"],
+            time_range=time_period,
         )
-        return {**state, "search_results": response.get("answer", "")}
+        return {
+            **state,
+            "results": response.get("results", []),
+        }
     except Exception as e:
-        return {**state, "search_results": f"Tavily error: {str(e)}"}
+        return {**state, "results": []}

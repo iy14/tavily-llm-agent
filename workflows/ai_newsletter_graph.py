@@ -56,8 +56,3 @@ def build_graph():
     workflow.add_edge("llm_summarizer", END)
     
     return workflow.compile()
-
-if __name__ == "__main__":
-    graph = build_graph()
-    result = graph.invoke({"profession": "software engineer"})
-    print(result.get("newsletter", result))

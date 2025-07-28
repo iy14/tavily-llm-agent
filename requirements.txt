@@ -1,4 +1,4 @@
-langraph
+langgraph
 tavily-python
 python-dotenv
 openai

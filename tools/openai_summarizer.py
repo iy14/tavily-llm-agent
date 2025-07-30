@@ -62,12 +62,11 @@ Please provide your response as numbered points, one for each result, ensuring e
         )
 
         summary = response.choices[0].message.content.strip()
-        return {**state, f"{content_type}_summary": summary}
+        return {f"{content_type}_summary": summary}
 
     except Exception as e:
         return {
-            **state,
-            f"{content_type}_summary": f"Error summarizing {content_type}: {str(e)}",
+            f"{content_type}_summary": f"Error summarizing {content_type}: {str(e)}"
         }
 
 

@@ -1,6 +1,7 @@
 # AI Profession Newsletter Agent
 
-# Video Demo of the agent in action: https://drive.google.com/file/d/1EAMOEIfg7WXEKy953295UiR25haDYvvA/view?usp=sharing
+## Video Demo of the agent in action: 
+https://drive.google.com/file/d/1EAMOEIfg7WXEKy953295UiR25haDYvvA/view?usp=sharing
 
 ## Overview
 

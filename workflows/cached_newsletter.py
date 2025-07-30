@@ -25,7 +25,6 @@ def generate_newsletter_with_cache(profession: str, time_period: str = "day") ->
         }
 
     # Cache miss - generate new newsletter
-    print(f"🔄 Generating fresh newsletter for {profession} ({time_period})")
 
     try:
         # Build and run the workflow
@@ -55,7 +54,6 @@ def generate_newsletter_with_cache(profession: str, time_period: str = "day") ->
             }
 
     except Exception as e:
-        print(f"❌ Error generating newsletter: {e}")
         return {
             "newsletter": f"Error generating newsletter: {str(e)}",
             "source": "error",

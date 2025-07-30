@@ -13,15 +13,14 @@ redis_client = None
 if REDIS_URL:
     try:
         redis_client = redis.from_url(REDIS_URL, decode_responses=True)
-        # Test connection
         redis_client.ping()
-        print("✅ Redis connected successfully")
     except Exception as e:
         print(f"❌ Redis connection failed: {e}")
         redis_client = None
 else:
     print("⚠️ REDIS_URL not found in environment variables")
 
+# We want to cache the newsletter for 8 hours, 2 days and 1 week for day, week and month respectively.
 # TTL mapping (in seconds)
 TTL_MAP = {
     "day": 8 * 3600,  # 8 hours
@@ -45,14 +44,11 @@ def get_cached_newsletter(profession: str, time_period: str) -> Optional[str]:
         cached_newsletter = redis_client.get(cache_key)
 
         if cached_newsletter:
-            print(f"✅ Cache HIT for {profession} ({time_period})")
             return cached_newsletter
         else:
-            print(f"❌ Cache MISS for {profession} ({time_period})")
             return None
 
     except Exception as e:
-        print(f"⚠️ Cache retrieval error: {e}")
         return None
 
 
@@ -65,18 +61,10 @@ def cache_newsletter(profession: str, time_period: str, newsletter: str) -> bool
         cache_key = get_cache_key(profession, time_period)
         ttl_seconds = TTL_MAP.get(time_period, TTL_MAP["day"])  # Default to day TTL
 
-        # Store with expiration
         redis_client.setex(cache_key, ttl_seconds, newsletter)
-
-        # Convert seconds to human readable for logging
-        hours = ttl_seconds // 3600
-        print(
-            f"✅ Cached newsletter for {profession} ({time_period}) - expires in {hours} hours"
-        )
         return True
 
     except Exception as e:
-        print(f"⚠️ Cache storage error: {e}")
         return False
 
 
@@ -90,11 +78,9 @@ def clear_cache_for_profession(profession: str) -> int:
         keys = redis_client.keys(pattern)
         if keys:
             deleted = redis_client.delete(*keys)
-            print(f"🗑️ Cleared {deleted} cached newsletters for {profession}")
             return deleted
         return 0
     except Exception as e:
-        print(f"⚠️ Cache clear error: {e}")
         return 0
 
 

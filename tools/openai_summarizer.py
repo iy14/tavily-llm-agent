@@ -25,7 +25,7 @@ def summarize_content(state):
             f"{content_type}_summary": f"No recent AI {content_type} found.",
         }
 
-    # Prepare content for OpenAI (max 5 results as specified)
+    # Prepare content for OpenAI (max 5 results)
     search_content = ""
     for i, result in enumerate(results[:5], 1):
         search_content += f"\n{i}. {result.get('title', '')}\n"

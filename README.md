@@ -50,7 +50,7 @@ REDIS_URL=redis://default:1Yyucr7QcxaIRCDnwrXGVyWVdpYwfgig@redis-13531.c250.eu-c
 python main.py
 ```
 
-### 6. Or run a script which showcases the Agent's capabilities
+### 6. Or run a simple script which showcases the agent's capabilities
 ```bash
 python showcase_agent.py
 ```

@@ -10,7 +10,7 @@ class GraphState(TypedDict):
     profession: str
     time_period: str
     # Use Annotated to collect results from parallel nodes
-    search_results: Annotated[list, operator.add]
+    search_results: Annotated[list, operator.add]  # Track result counts
     summaries: Annotated[list, operator.add]
     final_summary: str
     newsletter: str
@@ -88,20 +88,30 @@ def search_and_summarize(state: SearchState) -> GraphState:
             exclude_domains=["youtube.com"],
             time_range=time_period,
         )
-        results = response.get("results", [])
+        raw_results = response.get("results", [])
+
+        # Filter results by score > 0.5
+        filtered_results = [
+            result for result in raw_results if result.get("score", 0) > 0.5
+        ]
+
+        results = filtered_results
     except Exception as e:
         results = []
 
     # Summarize results
     if not results:
-        summary = f"No recent AI {search_type} found."
+        summary = f"No high-quality AI {search_type} found (score > 0.5)."
     else:
-        # Prepare content for OpenAI (max 5 results as specified)
+        # Prepare content for OpenAI (max 5 results)
         search_content = ""
         for i, result in enumerate(results[:5], 1):
+            score = result.get("score", 0)
             search_content += f"\n{i}. {result.get('title', '')}\n"
             search_content += f"   {result.get('content', '')}\n"
-            search_content += f"   Source: {result.get('url', '')}\n"
+            search_content += (
+                f"   Source: {result.get('url', '')} (Score: {score:.2f})\n"
+            )
 
         prompt = f"""Based on the following search results about AI {search_type} for {profession}, 
 create a numbered point for EACH result provided. Each point should be:
@@ -137,27 +147,43 @@ Please provide your response as numbered points, one for each result, ensuring e
         except Exception as e:
             summary = f"Error summarizing {search_type}: {str(e)}"
 
-    return {"summaries": [summary]}
+    return {
+        "summaries": [summary],
+        "search_results": [
+            {"type": search_type, "count": len(results)}
+        ],  # Track result counts
+    }
 
 
 def combine_and_select(state: GraphState) -> GraphState:
     """Select top points from all summaries"""
     profession = state.get("profession", "professionals")
+    time_period = state.get("time_period", "day")
     summaries = state.get("summaries", [])
+    search_results = state.get("search_results", [])
+
+    # Calculate total filtered results
+    total_results = sum(result["count"] for result in search_results)
+
+    # Check if we have insufficient results
+    if total_results < 3:
+        return {
+            "final_summary": "insufficient_results",
+            "newsletter": f"Cannot find sufficient high-quality information on {profession}s in the last {time_period}.",
+        }
 
     if not summaries or len(summaries) < 2:
         return {"final_summary": "No relevant AI updates found."}
 
-    # Assume first summary is news, second is tools
-    news_summary = summaries[0] if len(summaries) > 0 else ""
-    tools_summary = summaries[1] if len(summaries) > 1 else ""
+    # Doesn't matter which is which, we'll combine them anyway
+    first_summary = summaries[0] if len(summaries) > 0 else ""
+    second_summary = summaries[1] if len(summaries) > 1 else ""
 
     # Combine all points
-    all_points = f"""AI News Points:
-{news_summary}
+    all_points = f"""
+{first_summary}
 
-AI Tools Points:
-{tools_summary}"""
+{second_summary}"""
 
     prompt = f"""From the following numbered points about AI news and tools for {profession}, 
 select the MOST RELEVANT and important points for a {profession} looking for a general industry update.

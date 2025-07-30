@@ -1,5 +1,7 @@
 # AI Profession Newsletter Agent
 
+# Video Demo of the agent in action: https://drive.google.com/file/d/1EAMOEIfg7WXEKy953295UiR25haDYvvA/view?usp=sharing
+
 ## Overview
 
 The AI Newsletter Agent is an interactive, profession-tailored tool that delivers the latest, most relevant AI news and tools. It leverages real-time web search, advanced filtering, LLM summarization, and user-friendly follow-up features to provide professionals with actionable, up-to-date insights.

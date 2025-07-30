@@ -1,5 +1,5 @@
-langgraph
 tavily-python
 python-dotenv
 openai
-pymongo
+langgraph
+redis

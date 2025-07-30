@@ -1,8 +1,12 @@
 # AI Profession Newsletter Agent
 
 ## Overview
-
 The AI Profession Newsletter Agent is an interactive agent that delivers the latest, most relevant AI updates for a given profession (e.g. accountant, doctor, musician). It leverages real-time web search, LLM summarization, and follow-up features to provide professionals with actionable, up-to-date insights.
+
+## TLDR
+* PROJECT_PROCESS_ONE_PAGER.md - one pager with project process and explanation of my work-flow in building this project.
+* ```python main.py``` - run this from the root **after setup** to run the interactive agent.
+* ```python showcase_agent.py``` - run this from the root **after setup** to showcase the agent capibilities, not interactively.
 
 ## Video of the agent in action, running locally in my environment: 
 https://drive.google.com/file/d/1EAMOEIfg7WXEKy953295UiR25haDYvvA/view?usp=sharing

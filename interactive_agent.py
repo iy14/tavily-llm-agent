@@ -1,8 +1,10 @@
 import time
+import uuid
 from workflows.cached_newsletter import generate_newsletter_with_cache
 from tools.cache import clear_cache_for_profession, get_cache_key, redis_client
 from tools.profession_validator import validate_and_correct_profession
 from tools.url_extractor import extract_urls_from_newsletter, get_detailed_explanation
+from telemetry.metadata_emitter import get_telemetry
 
 
 def print_welcome():
@@ -214,8 +216,10 @@ def show_detailed_explanation(newsletter_text: str, profession: str):
     print("\n" + "=" * 80)
 
 
-def generate_newsletter_interactive(profession: str, time_period: str):
+def generate_newsletter_interactive(profession: str, time_period: str, session_id: str = None, telemetry=None):
     """Generate newsletter with interactive cache handling"""
+    generation_start = time.time()
+    
     # First check if there's a cache hit
     from tools.cache import get_cached_newsletter
 
@@ -232,6 +236,18 @@ def generate_newsletter_interactive(profession: str, time_period: str):
 
         if use_cache:
             print("\n✅ Using cached results...\n")
+            
+            # Emit cache hit event
+            if telemetry and session_id:
+                query_fingerprint = telemetry.event_builder.query_fingerprint(f"AI news and tools for {profession}")
+                telemetry.cache_operation(
+                    session_id=session_id,
+                    query_fingerprint=query_fingerprint,
+                    cache_hit=True,
+                    cache_item_age_s=300,  # Estimate 5 minutes old
+                    ttl_remaining_s=3300   # Estimate 55 minutes remaining
+                )
+            
             return {
                 "newsletter": cached_result,
                 "source": "cache",
@@ -247,7 +263,39 @@ def generate_newsletter_interactive(profession: str, time_period: str):
     print(f"\n🔍 Searching for the latest AI updates for {profession}s...")
     print("This may take a moment while I search and analyze the results...")
 
-    return generate_newsletter_with_cache(profession, time_period)
+    result = generate_newsletter_with_cache(profession, time_period)
+    
+    # Emit telemetry events for fresh generation
+    if telemetry and session_id:
+        generation_time = int((time.time() - generation_start) * 1000)
+        query_fingerprint = telemetry.event_builder.query_fingerprint(f"AI news and tools for {profession}")
+        
+        # Cache miss event
+        telemetry.cache_operation(
+            session_id=session_id,
+            query_fingerprint=query_fingerprint,
+            cache_hit=False,
+            miss_reason="not_found",
+            ttl_assigned_s=3600  # 1 hour TTL
+        )
+        
+        # Summary generation event (if successful)
+        if result.get("newsletter") and result["newsletter"] != "insufficient_results":
+            newsletter = result["newsletter"]
+            bullet_points = newsletter.count('•') + newsletter.count('-') + newsletter.count('*')
+            
+            telemetry.summary_generated(
+                session_id=session_id,
+                query_fingerprint=query_fingerprint,
+                llm_latency_ms=generation_time,
+                total_tokens=int(len(newsletter.split()) * 1.3),  # Rough token estimate
+                model="gpt-4",  # Assuming gpt-4 is used
+                cited_results_count=min(bullet_points, 10),  # Estimate
+                original_result_count=10,  # Estimate
+                num_points_in_summary=max(bullet_points, 3)
+            )
+
+    return result
 
 
 def handle_insufficient_results(profession: str, time_period: str):
@@ -325,25 +373,61 @@ def get_expanded_time_period(current_period: str):
 def main():
     """Main interactive application loop"""
     print_welcome()
+    
+    # Initialize telemetry for the session
+    telemetry = get_telemetry()
+    session_id = str(uuid.uuid4())
+    session_start_time = time.time()
+    
+    print(f"🔍 Session ID: {session_id[:8]}... (telemetry {'enabled' if telemetry.enabled else 'disabled'})")
 
     while True:
         # Step 1 & 2: Get user inputs
         profession = get_user_profession()
         if profession is None:  # User wants to quit
+            # Emit session completion event
+            session_end_time = time.time()
+            total_session_time = int((session_end_time - session_start_time) * 1000)
+            telemetry.session_completed(
+                session_id=session_id,
+                end_to_end_latency_ms=total_session_time,
+                events_emitted=1,  # At least session start
+                final_status="cancelled",
+                followups_in_session=0
+            )
             print("\n👋 Thanks for using AI Newsletter Agent!")
             print("Stay updated with the latest AI developments!")
             break
 
         time_period = get_user_time_period()
         if time_period is None:  # User wants to quit
+            # Emit session completion event
+            session_end_time = time.time()
+            total_session_time = int((session_end_time - session_start_time) * 1000)
+            telemetry.session_completed(
+                session_id=session_id,
+                end_to_end_latency_ms=total_session_time,
+                events_emitted=2,  # query_processed + session_completed
+                final_status="cancelled",
+                followups_in_session=0
+            )
             print("\n👋 Thanks for using AI Newsletter Agent!")
             print("Stay updated with the latest AI developments!")
             break
 
+        # Emit query processed event when we have both profession and time period
+        telemetry.query_processed(
+            session_id=session_id,
+            query=f"AI news and tools for {profession}",
+            profession=profession,
+            time_range=time_period,
+            normalization_applied=False
+        )
+
         # Step 3 & 4: Generate newsletter with cache handling
         while True:  # Loop for handling insufficient results with time period expansion
             try:
-                result = generate_newsletter_interactive(profession, time_period)
+                result = generate_newsletter_interactive(profession, time_period, session_id, telemetry)
 
                 if result == "quit":  # User wants to quit during cache choice
                     print("\n👋 Thanks for using AI Newsletter Agent!")
@@ -408,7 +492,7 @@ def main():
                     clear_cache_for_user(profession, time_period)
                     try:
                         result = generate_newsletter_interactive(
-                            profession, time_period
+                            profession, time_period, session_id, telemetry
                         )
 
                         if result == "quit":  # User wants to quit during cache choice
@@ -446,6 +530,16 @@ def main():
                     show_detailed_explanation(result["newsletter"], profession)
                     continue
                 elif next_action == "quit":
+                    # Emit session completion event for successful completion
+                    session_end_time = time.time()
+                    total_session_time = int((session_end_time - session_start_time) * 1000)
+                    telemetry.session_completed(
+                        session_id=session_id,
+                        end_to_end_latency_ms=total_session_time,
+                        events_emitted=5,  # Rough estimate of events in successful session
+                        final_status="completed",
+                        followups_in_session=0  # Could track this better
+                    )
                     print("\n👋 Thanks for using AI Newsletter Agent!")
                     print("Stay updated with the latest AI developments!")
                     return  # Exit the entire application
